@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bible Projection Frontend</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <h1>Bible Projection Frontend</h1>
+    <div id="content">
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="Enter reference (e.g., gen1.1, 1co13.4)"
+      />
+      <button id="searchBtn">Search</button>
+      <div id="results"></div>
+    </div>
+    <script>
+      document.getElementById("searchBtn").onclick = async function () {
+        const query = document.getElementById("searchInput").value.trim();
+        const resultsDiv = document.getElementById("results");
+        if (!query) {
+          resultsDiv.textContent = "Please enter a search query.";
+          return;
+        }
+        resultsDiv.textContent = "Searching...";
+        try {
+          const res = await fetch(
+            "http://localhost:3001/search?q=" + encodeURIComponent(query)
+          );
+          const data = await res.json();
+          if (res.ok) {
+            resultsDiv.innerHTML = data
+              .map(
+                (row) =>
+                  `<div><b>${row.book} ${row.chapter}:${row.verse}</b> - ${row.text}</div>`
+              )
+              .join("");
+          } else {
+            resultsDiv.textContent = data.error || "No results found.";
+          }
+        } catch (err) {
+          resultsDiv.textContent = "Error: " + err.message;
+        }
+      };
+    </script>
+  </body>
+</html>
