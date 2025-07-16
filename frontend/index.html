@@ -32,12 +32,28 @@
           );
           const data = await res.json();
           if (res.ok) {
-            resultsDiv.innerHTML = data
-              .map(
-                (row) =>
-                  `<div><b>${row.book} ${row.chapter}:${row.verse}</b> - ${row.text}</div>`
-              )
-              .join("");
+            if (data.length === 0) {
+              resultsDiv.textContent = "No results found.";
+              return;
+            }
+            // Check if query has a hyphen (range)
+            const isRange = query.includes("-");
+            let html = "";
+            if (isRange) {
+              // Title: Book Chapter:StartVerse-EndVerse
+              const first = data[0];
+              const last = data[data.length - 1];
+              html += `<div style="font-weight:bold;font-size:1.2em;margin-bottom:0.5em;">${first.book} ${first.chapter}:${first.verse}-${last.verse}</div>`;
+              data.forEach((row) => {
+                html += `<div><b>${row.verse}</b> ${row.text}</div>`;
+              });
+            } else {
+              // Single verse: no number before text
+              const row = data[0];
+              html += `<div style="font-weight:bold;font-size:1.2em;margin-bottom:0.5em;">${row.book} ${row.chapter}:${row.verse}</div>`;
+              html += `<div>${row.text}</div>`;
+            }
+            resultsDiv.innerHTML = html;
           } else {
             resultsDiv.textContent = data.error || "No results found.";
           }

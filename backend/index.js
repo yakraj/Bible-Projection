@@ -107,10 +107,13 @@ app.get("/search", async (req, res) => {
   // Remove all whitespace and lowercase
   const cleaned = q.replace(/\s+/g, "").toLowerCase();
 
-  // Extract book abbreviation (all leading letters/numbers before first digit)
-  const match = cleaned.match(/^([1-3]?[a-z]+)(\d+)(?:\.(\d+))?$/);
+  // Extract book abbreviation, chapter, and verse or verse range
+  // Examples: 1gen3.1, 1gen3.1-3
+  const match = cleaned.match(/^([1-3]?[a-z]+)(\d+)\.(\d+)(?:-(\d+))?$/);
   if (!match) {
-    return res.status(400).json({ error: "Invalid query format." });
+    return res
+      .status(400)
+      .json({ error: "Invalid query format. Use e.g. gen1.1 or 1cor13.4-7" });
   }
   const abbr = match[1];
   const book = bookAbbr[abbr];
@@ -118,14 +121,12 @@ app.get("/search", async (req, res) => {
     return res.status(400).json({ error: "Unknown book abbreviation." });
   }
   const chapter = parseInt(match[2]);
-  const verse = match[3] ? parseInt(match[3]) : null;
+  const verseStart = parseInt(match[3]);
+  const verseEnd = match[4] ? parseInt(match[4]) : verseStart;
 
-  let sql = "SELECT * FROM nkjv WHERE book = $1 AND chapter = $2";
-  let params = [book, chapter];
-  if (verse) {
-    sql += " AND verse = $3";
-    params.push(verse);
-  }
+  let sql =
+    "SELECT * FROM nkjv WHERE book = $1 AND chapter = $2 AND verse >= $3 AND verse <= $4 ORDER BY verse ASC";
+  let params = [book, chapter, verseStart, verseEnd];
 
   try {
     const result = await pool.query(sql, params);
