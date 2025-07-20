@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dynamic Media Player</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #f0f2f5;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      #mediaPlayerContainer {
+        background-color: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        width: 100%;
+        max-width: 1080px;
+        display: flex;
+        flex-direction: column;
+      }
+      #mediaDisplay {
+        position: relative;
+        width: 100%;
+        padding-top: 56.25%; /* 16:9 Aspect Ratio (height / width * 100) */
+        background-color: #000;
+        display: flex; /* Use flexbox for centering content */
+        justify-content: center;
+        align-items: center;
+        border-bottom: 1px solid #e5e7eb;
+        /* Add styles for drag-and-drop feedback */
+        border: 2px dashed transparent; /* Default border */
+        transition: border-color 0.3s ease;
+      }
+      #mediaDisplay.drag-over {
+        border-color: #4f46e5; /* Highlight when dragging over */
+        background-color: #333; /* Slightly darker background */
+      }
+      /* Specific object-fit for different media types */
+      #mediaDisplay iframe,
+      #mediaDisplay video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain; /* Videos and iframes should contain to show entire content */
+        border-radius: 8px; /* Slightly rounded corners for media */
+      }
+      #mediaDisplay img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover; /* Images should cover the display area */
+        border-radius: 8px; /* Slightly rounded corners for media */
+      }
+      .controls-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 1.5rem;
+      }
+      @media (min-width: 768px) {
+        .controls-grid {
+          grid-template-columns: 1fr 1fr; /* Two columns on medium screens and up */
+        }
+      }
+      .custom-file-input {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid #d1d5db;
+        background-color: #f9fafb;
+        color: #4b5563;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        font-weight: 600;
+        text-align: center;
+      }
+      .custom-file-input:hover {
+        background-color: #e5e7eb;
+        border-color: #9ca3af;
+      }
+      .custom-file-input input[type="file"] {
+        display: none;
+      }
+      .video-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        padding: 1rem 1.5rem;
+        background-color: #f3f4f6;
+        border-top: 1px solid #e5e7eb;
+        border-radius: 0 0 16px 16px; /* Rounded bottom corners */
+      }
+      .video-controls button {
+        background-color: #4f46e5;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        transition: background-color 0.2s;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .video-controls button:hover {
+        background-color: #4338ca;
+      }
+      .video-controls input[type="range"] {
+        flex-grow: 1;
+        -webkit-appearance: none;
+        height: 8px;
+        background: #d1d5db;
+        border-radius: 4px;
+        outline: none;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+      }
+      .video-controls input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        background: #4f46e5;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
+      }
+      .video-controls input[type="range"]::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        background: #4f46e5;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
+      }
+      .hidden {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="mediaPlayerContainer" class="rounded-2xl">
+      <div
+        id="mediaDisplay"
+        class="relative w-full bg-black flex justify-center items-center rounded-t-2xl"
+      >
+        <p class="text-white text-lg">Load a video or image</p>
+      </div>
+
+      <div class="controls-grid p-6 bg-gray-50 rounded-b-2xl">
+        <!-- YouTube Section -->
+        <div class="flex flex-col gap-3">
+          <label
+            for="youtubeUrlInput"
+            class="text-sm font-semibold text-gray-700"
+            >URL (YouTube or Image):</label
+          >
+          <input
+            type="text"
+            id="youtubeUrlInput"
+            placeholder="e.g., YouTube URL or image.jpg"
+            class="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <button
+            id="loadYoutubeBtn"
+            class="bg-indigo-600 text-white py-3 px-6 rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-md"
+          >
+            Load URL
+          </button>
+        </div>
+
+        <!-- Local File Section -->
+        <div class="flex flex-col gap-3">
+          <label
+            for="localFileInput"
+            class="text-sm font-semibold text-gray-700"
+            >Local File:</label
+          >
+          <label class="custom-file-input">
+            <input type="file" id="localFileInput" accept="video/*,image/*" />
+            Choose Local Video or Image
+          </label>
+          <p id="fileNameDisplay" class="text-sm text-gray-500 mt-1"></p>
+        </div>
+      </div>
+
+      <!-- Custom Video Controls (for local videos) -->
+      <div id="videoControls" class="video-controls hidden">
+        <button id="playPauseBtn" class="flex items-center gap-2">
+          <svg
+            id="playIcon"
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M14.752 11.168l-3.197 2.132A1 1 0 0010 14.132V9.868a1 1 0 001.555-.832l3.197 2.132a1 1 0 010 1.664z"
+            />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <svg
+            id="pauseIcon"
+            class="h-6 w-6 hidden"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <span id="playPauseText">Play</span>
+        </button>
+        <input
+          type="range"
+          id="progressBar"
+          value="0"
+          min="0"
+          max="100"
+          class="cursor-pointer"
+        />
+        <span id="currentTime" class="text-sm text-gray-700">0:00</span> /
+        <span id="duration" class="text-sm text-gray-700">0:00</span>
+        <input
+          type="range"
+          id="volumeBar"
+          value="100"
+          min="0"
+          max="100"
+          class="w-24 cursor-pointer"
+        />
+        <button id="fullscreenBtn" class="flex items-center gap-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 0h-4m4 0l-5-5"
+            />
+          </svg>
+          <span>Fullscreen</span>
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const youtubeUrlInput = document.getElementById("youtubeUrlInput");
+      const loadYoutubeBtn = document.getElementById("loadYoutubeBtn");
+      const localFileInput = document.getElementById("localFileInput");
+      const fileNameDisplay = document.getElementById("fileNameDisplay");
+      const mediaDisplay = document.getElementById("mediaDisplay");
+      const videoControls = document.getElementById("videoControls");
+
+      // Video control elements
+      const playPauseBtn = document.getElementById("playPauseBtn");
+      const playIcon = document.getElementById("playIcon");
+      const pauseIcon = document.getElementById("pauseIcon");
+      const playPauseText = document.getElementById("playPauseText");
+      const progressBar = document.getElementById("progressBar");
+      const currentTimeSpan = document.getElementById("currentTime");
+      const durationSpan = document.getElementById("duration");
+      const volumeBar = document.getElementById("volumeBar");
+      const fullscreenBtn = document.getElementById("fullscreenBtn");
+
+      let currentMediaElement = null; // To keep track of the currently playing video/image
+
+      /**
+       * Clears the media display and hides video controls.
+       */
+      function clearMediaDisplay() {
+        mediaDisplay.innerHTML =
+          '<p class="text-white text-lg">Load a video or image</p>';
+        videoControls.classList.add("hidden");
+        currentMediaElement = null;
+        fileNameDisplay.textContent = ""; // Clear file name display
+      }
+
+      /**
+       * Formats time in seconds to MM:SS format.
+       * @param {number} seconds The time in seconds.
+       * @returns {string} Formatted time string.
+       */
+      function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        return `${minutes}:${
+          remainingSeconds < 10 ? "0" : ""
+        }${remainingSeconds}`;
+      }
+
+      /**
+       * Loads and displays an image from a given URL.
+       * @param {string} url The URL of the image.
+       */
+      function loadImageFromURL(url) {
+        clearMediaDisplay();
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "Loaded Image";
+        img.classList.add("rounded-lg", "shadow-lg");
+        mediaDisplay.innerHTML = ""; // Clear placeholder
+        mediaDisplay.appendChild(img);
+        currentMediaElement = img;
+        fileNameDisplay.textContent = `Loaded: ${url}`;
+      }
+
+      /**
+       * Handles loading and playing YouTube videos or loading images from URL.
+       */
+      loadYoutubeBtn.addEventListener("click", () => {
+        clearMediaDisplay(); // Clear any existing media
+
+        const url = youtubeUrlInput.value.trim();
+        if (!url) {
+          mediaDisplay.innerHTML =
+            '<p class="text-red-500 text-lg">Please enter a URL.</p>';
+          return;
+        }
+
+        // Regex to extract video ID and optional timestamp (t= or start=)
+        const youtubeRegex =
+          /(?:https?:\/\/)?(?:www\.)?(?:m\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|v\/|)([\w-]{11})(?:\S*t=(\d+)s?)?(?:\S*start=(\d+)s?)?/i;
+        const match = url.match(youtubeRegex);
+
+        // Check if it's a YouTube URL
+        if (match && match[1]) {
+          const videoId = match[1];
+          const startTime = match[2] || match[3] || 0; // Use t= or start=, default to 0
+
+          const iframe = document.createElement("iframe");
+          // Added autoplay=1 and mute=1 to the YouTube embed URL for automatic playback
+          // Mute is often required by browsers for autoplay without user interaction.
+          iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&start=${startTime}&rel=0&mute=1`;
+          iframe.setAttribute("frameborder", "0");
+          iframe.setAttribute(
+            "allow",
+            "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          );
+          iframe.setAttribute("allowfullscreen", "");
+          iframe.classList.add("rounded-lg", "shadow-lg"); // Add styling classes
+          mediaDisplay.innerHTML = ""; // Clear placeholder
+          mediaDisplay.appendChild(iframe);
+          currentMediaElement = iframe;
+        }
+        // Check if it's an image URL
+        else if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(url)) {
+          loadImageFromURL(url);
+        } else {
+          mediaDisplay.innerHTML =
+            '<p class="text-red-500 text-lg">Invalid YouTube or image URL. Please check the format.</p>';
+        }
+      });
+
+      /**
+       * Handles loading and displaying local video or image files.
+       * @param {File} file The file object to be loaded.
+       */
+      function loadLocalFile(file) {
+        clearMediaDisplay(); // Clear any existing media
+
+        if (!file) {
+          return;
+        }
+
+        fileNameDisplay.textContent = `Selected: ${file.name}`;
+
+        const fileURL = URL.createObjectURL(file);
+
+        if (file.type.startsWith("video/")) {
+          const video = document.createElement("video");
+          video.src = fileURL;
+          video.autoplay = true; // Added autoplay attribute for local videos
+          video.classList.add("rounded-lg", "shadow-lg");
+          mediaDisplay.innerHTML = ""; // Clear placeholder
+          mediaDisplay.appendChild(video);
+          currentMediaElement = video;
+
+          // Show and set up custom video controls
+          videoControls.classList.remove("hidden");
+          video.volume = volumeBar.value / 100; // Set initial volume
+
+          // Immediately update play/pause button to "Pause" state
+          playIcon.classList.add("hidden");
+          pauseIcon.classList.remove("hidden");
+          playPauseText.textContent = "Pause";
+
+          // Event listeners for video playback
+          video.addEventListener("loadedmetadata", () => {
+            durationSpan.textContent = formatTime(video.duration);
+            progressBar.max = video.duration;
+          });
+
+          video.addEventListener("timeupdate", () => {
+            currentTimeSpan.textContent = formatTime(video.currentTime);
+            progressBar.value = video.currentTime;
+          });
+
+          video.addEventListener("ended", () => {
+            playIcon.classList.remove("hidden");
+            pauseIcon.classList.add("hidden");
+            playPauseText.textContent = "Play";
+          });
+
+          // Custom control handlers
+          playPauseBtn.onclick = () => {
+            if (video.paused) {
+              video.play();
+              playIcon.classList.add("hidden");
+              pauseIcon.classList.remove("hidden");
+              playPauseText.textContent = "Pause";
+            } else {
+              video.pause();
+              playIcon.classList.remove("hidden");
+              pauseIcon.classList.add("hidden");
+              playPauseText.textContent = "Play";
+            }
+          };
+
+          progressBar.oninput = () => {
+            video.currentTime = progressBar.value;
+          };
+
+          volumeBar.oninput = () => {
+            video.volume = volumeBar.value / 100;
+          };
+
+          fullscreenBtn.onclick = () => {
+            if (video.requestFullscreen) {
+              video.requestFullscreen();
+            } else if (video.mozRequestFullScreen) {
+              /* Firefox */
+              video.mozRequestFullScreen();
+            } else if (video.webkitRequestFullscreen) {
+              /* Chrome, Safari and Opera */
+              video.webkitRequestFullscreen();
+            } else if (video.msRequestFullscreen) {
+              /* IE/Edge */
+              video.msRequestFullscreen();
+            }
+          };
+        } else if (file.type.startsWith("image/")) {
+          const img = document.createElement("img");
+          img.src = fileURL;
+          img.alt = file.name;
+          img.classList.add("rounded-lg", "shadow-lg");
+          mediaDisplay.innerHTML = ""; // Clear placeholder
+          mediaDisplay.appendChild(img);
+          currentMediaElement = img;
+          // No autoplay for images, as they are static.
+        } else {
+          mediaDisplay.innerHTML =
+            '<p class="text-red-500 text-lg">Unsupported file type. Please select a video or image.</p>';
+        }
+      }
+
+      // Event listener for file input change
+      localFileInput.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        loadLocalFile(file);
+      });
+
+      // Drag and Drop functionality
+      mediaDisplay.addEventListener("dragover", (event) => {
+        event.preventDefault(); // Prevent default to allow drop
+        mediaDisplay.classList.add("drag-over");
+      });
+
+      mediaDisplay.addEventListener("dragleave", (event) => {
+        event.preventDefault();
+        mediaDisplay.classList.remove("drag-over");
+      });
+
+      mediaDisplay.addEventListener("drop", (event) => {
+        event.preventDefault(); // Prevent default browser behavior (e.g., opening file in new tab)
+        mediaDisplay.classList.remove("drag-over");
+
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+          // Take the first file dropped
+          loadLocalFile(files[0]);
+        }
+      });
+
+      // Clean up object URL when media is removed or page is unloaded
+      window.addEventListener("beforeunload", () => {
+        if (
+          currentMediaElement &&
+          currentMediaElement.src &&
+          currentMediaElement.src.startsWith("blob:")
+        ) {
+          URL.revokeObjectURL(currentMediaElement.src);
+        }
+      });
+    </script>
+  </body>
+</html>

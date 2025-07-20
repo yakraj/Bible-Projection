@@ -7,15 +7,14 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <h1>Bible Projection Frontend</h1>
-    <div id="content">
-      <input
-        type="text"
-        id="searchInput"
-        placeholder="Enter reference (e.g., gen1.1, 1co13.4)"
-      />
+    <div id="search-bar">
+      <input type="text" id="searchInput" placeholder="Enter reference" />
       <button id="searchBtn">Search</button>
-      <div id="results"></div>
+    </div>
+    <div id="content-container">
+      <div id="content">
+        <div id="results"></div>
+      </div>
     </div>
     <script>
       document.getElementById("searchBtn").onclick = async function () {
@@ -32,26 +31,75 @@
           );
           const data = await res.json();
           if (res.ok) {
-            if (data.length === 0) {
+            if (
+              (!data.english || data.english.length === 0) &&
+              (!data.hindi || data.hindi.length === 0)
+            ) {
               resultsDiv.textContent = "No results found.";
               return;
             }
-            // Check if query has a hyphen (range)
             const isRange = query.includes("-");
             let html = "";
-            if (isRange) {
-              // Title: Book Chapter:StartVerse-EndVerse
-              const first = data[0];
-              const last = data[data.length - 1];
-              html += `<div style="font-weight:bold;font-size:1.2em;margin-bottom:0.5em;">${first.book} ${first.chapter}:${first.verse}-${last.verse}</div>`;
-              data.forEach((row) => {
-                html += `<div><b>${row.verse}</b> ${row.text}</div>`;
-              });
-            } else {
-              // Single verse: no number before text
-              const row = data[0];
-              html += `<div style="font-weight:bold;font-size:1.2em;margin-bottom:0.5em;">${row.book} ${row.chapter}:${row.verse}</div>`;
-              html += `<div>${row.text}</div>`;
+            // Determine title
+            let title = "";
+            if (data.english && data.english.length > 0) {
+              const firstEng = data.english[0];
+              const lastEng = data.english[data.english.length - 1];
+              let bookTitle = firstEng.book;
+              let chapter = firstEng.chapter;
+              let verseStart = firstEng.verse;
+              let verseEnd = lastEng.verse;
+              // Try to get Hindi book name if available
+              let bookHi = "";
+              if (data.hindi && data.hindi.length > 0) {
+                bookHi = data.hindi[0].book_hi
+                  ? ` (${data.hindi[0].book_hi})`
+                  : "";
+              }
+              if (isRange) {
+                title = `${bookTitle}${bookHi} ${chapter}:${verseStart}-${verseEnd}`;
+              } else {
+                title = `${bookTitle}${bookHi} ${chapter}:${verseStart}`;
+              }
+              html += `<div style=\"font-weight:bold;font-size:1.5em;margin-bottom:0.5em;text-align:center;\">${title}</div>`;
+            } else if (data.hindi && data.hindi.length > 0) {
+              // Only Hindi available
+              const firstHin = data.hindi[0];
+              const lastHin = data.hindi[data.hindi.length - 1];
+              let bookTitle = firstHin.book_en;
+              let bookHi = firstHin.book_hi ? ` (${firstHin.book_hi})` : "";
+              let chapter = firstHin.chapter;
+              let verseStart = firstHin.Versecount;
+              let verseEnd = lastHin.Versecount;
+              if (isRange) {
+                title = `${bookTitle}${bookHi} ${chapter}:${verseStart}-${verseEnd}`;
+              } else {
+                title = `${bookTitle}${bookHi} ${chapter}:${verseStart}`;
+              }
+              html += `<div style=\"font-weight:bold;font-size:1.5em;margin-bottom:0.5em;\">${title}</div>`;
+            }
+            // English verses
+            if (data.english && data.english.length > 0) {
+              if (isRange) {
+                data.english.forEach((row) => {
+                  html += `<div  style="font-size:1.5em;"><b>${row.verse}</b> ${row.text}</div>`;
+                });
+              } else {
+                const row = data.english[0];
+                html += `<div style="font-size:1.5em;">${row.text}</div>`;
+              }
+            }
+            // Hindi verses
+            if (data.hindi && data.hindi.length > 0) {
+              html += "<hr>";
+              if (isRange) {
+                data.hindi.forEach((row) => {
+                  html += `<div style="font-size:1.5em;"><b>${row.versecount}</b> ${row.text}</div>`;
+                });
+              } else {
+                const row = data.hindi[0];
+                html += `<div style="font-size:1.5em;">${row.text}</div>`;
+              }
             }
             resultsDiv.innerHTML = html;
           } else {
@@ -61,6 +109,13 @@
           resultsDiv.textContent = "Error: " + err.message;
         }
       };
+      document
+        .getElementById("searchInput")
+        .addEventListener("keydown", function (e) {
+          if (e.key === "Enter") {
+            document.getElementById("searchBtn").click();
+          }
+        });
     </script>
   </body>
 </html>

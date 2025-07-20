@@ -124,16 +124,25 @@ app.get("/search", async (req, res) => {
   const verseStart = parseInt(match[3]);
   const verseEnd = match[4] ? parseInt(match[4]) : verseStart;
 
-  let sql =
+  // Query for English (nkjv)
+  let sqlEng =
     "SELECT * FROM nkjv WHERE book = $1 AND chapter = $2 AND verse >= $3 AND verse <= $4 ORDER BY verse ASC";
-  let params = [book, chapter, verseStart, verseEnd];
+  let paramsEng = [book, chapter, verseStart, verseEnd];
+
+  // Query for Hindi
+  let sqlHin =
+    "SELECT * FROM hindi WHERE book_en = $1 AND chapter = $2 AND Versecount >= $3 AND Versecount <= $4 ORDER BY Versecount ASC";
+  let paramsHin = [book, chapter, verseStart, verseEnd];
 
   try {
-    const result = await pool.query(sql, params);
-    if (result.rows.length === 0) {
+    const [engResult, hinResult] = await Promise.all([
+      pool.query(sqlEng, paramsEng),
+      pool.query(sqlHin, paramsHin),
+    ]);
+    if (engResult.rows.length === 0 && hinResult.rows.length === 0) {
       return res.status(404).json({ error: "No results found." });
     }
-    res.json(result.rows);
+    res.json({ english: engResult.rows, hindi: hinResult.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
